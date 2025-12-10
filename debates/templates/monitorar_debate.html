@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Monitoramento: {{ debate.titulo }}</title>
+    <!-- Atualização automática da página a cada 3 segundos -->
+    <meta http-equiv="refresh" content="3">
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; text-align: center; }
+        .header { margin-bottom: 20px; border-bottom: 2px solid #ccc; padding-bottom: 10px; }
+        .status-bar { padding: 10px; background-color: #e0f7fa; border-radius: 5px; margin-bottom: 20px; }
+        .participante-card { 
+            border: 2px solid #007bff; 
+            padding: 15px; 
+            margin: 10px auto; 
+            display: inline-block; 
+            width: 90%; 
+            max-width: 450px;
+            border-radius: 8px; 
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+            text-align: left;
+        }
+        .tempo-display { 
+            font-size: 2.5em; 
+            font-weight: bold; 
+            margin-top: 5px; 
+            color: #28a745;
+        }
+        .ativo { border-color: #28a745; background-color: #f0fff0; } 
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Monitoramento de Debate</h1>
+        <h2>{{ debate.titulo }}</h2>
+        <p>Tempo Total Alocado: {{ debate.tempo_total_segundos }} segundos</p>
+    </div>
+    
+    <div class="status-bar">
+        Status Atual: <span id="debate-status" style="font-weight: bold;">{{ debate.status }}</span> |
+        Participante Ativo ID: <span id="participante-ativo-id" style="font-weight: bold;">
+            {% if debate.participante_ativo_id %}
+                {{ debate.participante_ativo_id }}
+            {% else %}
+                Nenhum (PAUSADO)
+            {% endif %}
+        </span>
+    </div>
+
+
+    <form method="POST" action="{% url 'iniciar_debate_action' debate_id=debate.id %}">
+    {% csrf_token %}
+    
+    <button type="submit" 
+            id="btn-iniciar"
+            class="btn btn-success"
+            {% if debate.status != 'CONFIGURADO' %}disabled{% endif %}>
+        INICIAR DEBATE
+    </button>
+    </form>
+
+    
+    <div id="participantes-container">
+        {% for p in participantes %}
+        
+        <div class="participante-card {% if p.id == debate.participante_ativo_id %}ativo{% endif %}" data-participante-id="{{ p.id }}">
+            <h3>{{ p.participante_nome }} (Grupo: {{ p.grupo_nome }})</h3>
+            <p>ID Interno: <strong>{{ p.id }}</strong></p>
+            
+            
+            <div class="tempo-display" id="tempo-{{ p.id }}">
+                {{ p.tempo.tempo_acumulado_ms }} ms
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <hr>
+    
+    
+    <h3>Verificar API</h3>
+    <p>URL de consulta (usada pelo Serial Bridge): 
+        <a href="{% url 'api_status_debate' debate_id=debate.id %}" target="_blank">
+            /debates/api/status_debate/{{ debate.id }}/
+        </a>
+    </p>
+
+    <p><a href="{% url 'historico_debates' %}">← Voltar para o Histórico</a></p>
+
+    
+</body>
+</html>

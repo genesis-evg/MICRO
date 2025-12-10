@@ -1,0 +1,283 @@
+// =========================================================================
+// CÓDIGO ARDUINO MEGA - Foco: Integração Serial e Display E-PAPER
+// O Python (Serial Bridge) é o mestre da contagem de tempo.
+// =========================================================================
+
+// --- BIBLIOTECAS ---
+#include <GxEPD2_BW.h>
+#include <U8g2_for_Adafruit_GFX.h>
+#include <string.h> // Necessário para a função strtok (análise da string serial)
+
+// --- CONFIGURAÇÃO DO DISPLAY E-PAPER (Baseado no seu código) ---
+// Ajuste os pinos do GxEPD2_420_GDEY042T81 conforme sua ligação
+GxEPD2_BW<GxEPD2_420_GDEY042T81, GxEPD2_420_GDEY042T81::HEIGHT> tela(
+    GxEPD2_420_GDEY042T81(5, 17, 16, 4) // (CS, DC, RST, BUSY) - VERIFIQUE SE ESTES PINOS SÃO OS CORRETOS
+); 
+U8G2_FOR_ADAFRUIT_GFX fontes;
+
+// --- CONFIGURAÇÃO SERIAL E DADOS ---
+#define BAUD_RATE 115200 // DEVE COINCIDIR COM O PYTHON SERIAL BRIDGE
+#define MAX_DATA_SIZE 150 
+const char DELIMITADOR = '|';
+
+// Variáveis de Estado do Debate (Atualizadas pelo Python)
+String statusDebate = "CONFIGURADO"; 
+int ativoID = 0; 
+int tempoTotalGasto = 0; // Tempo gasto em segundos
+int tempoRestanteLED = 0; // Tempo restante em segundos
+
+// Variáveis de Exibição
+int estadoTela = 0; // 0: Inicial, 1: Participantes, 2: Final
+int participanteAtual = 0; // Índice (0-5) para desenhar a seta
+int tempos[6] = {0}; // Array para armazenar o tempo gasto de 6 participantes (em segundos)
+#define NUM_PARTICIPANTES_MAX 6
+
+
+// --- PROTÓTIPOS DE FUNÇÕES ---
+void analisarProtocolo(String data);
+void recvSerialData();
+void desenhaTelaInicial();
+void desenhaTelaParticipante();
+void desenhaTelaFinal();
+void atualizaTela();
+String formatarTempo(int totalSeg);
+
+// =========================================================================
+// SETUP (Configuração Inicial)
+// =========================================================================
+
+void setup() {
+    Serial.begin(BAUD_RATE); 
+    
+    // Inicialização do E-Paper
+    tela.init(BAUD_RATE); 
+    tela.setFullWindow();
+    fontes.begin(tela);
+    fontes.setForegroundColor(GxEPD_BLACK);
+    fontes.setBackgroundColor(GxEPD_WHITE);
+
+    for(int i = 0; i < 6; i++) {
+        tempos[i] = 0; 
+    }
+    tempoTotalGasto = 0;
+
+    atualizaTela();
+}
+
+// =========================================================================
+// LOOP (Escuta Serial e Desenho)
+// =========================================================================
+
+void loop() {
+    // 1. LEITURA SERIAL (Escuta o Python)
+    recvSerialData();
+    
+    // A tela E-Paper será atualizada DENTRO de analisarProtocolo (para ser condicional à chegada de dados)
+    
+    // 2. Ticks de Botão (A ser implementado na próxima fase)
+    // ...
+    
+    delay(10); // Pequeno atraso para estabilidade
+}
+
+// =========================================================================
+// FUNÇÕES DE COMUNICAÇÃO E ANÁLISE
+// =========================================================================
+
+void recvSerialData() {
+    // Função adaptada para leitura não-bloqueante
+    static String inputString = ""; 
+    
+    while (Serial.available()) {
+        char inChar = (char)Serial.read();
+        
+        if (inChar == '\n') { // Encontrado o marcador de fim de linha
+            inputString.trim();
+            if (inputString.startsWith("STATUS")) {
+                analisarProtocolo(inputString);
+            }
+            inputString = ""; // Limpa a string para a próxima mensagem
+        } else {
+            inputString += inChar;
+            // Limite de tamanho para evitar estouro de buffer
+            if (inputString.length() > MAX_DATA_SIZE - 2) {
+                inputString = "";
+            }
+        }
+    }
+}
+
+void analisarProtocolo(String data) {
+    // Esta função desmembra a string recebida do Python (Ex: STATUS|1|EM_ANDAMENTO|P1:0300|...)
+    
+    char tempCopy[MAX_DATA_SIZE];
+    data.toCharArray(tempCopy, MAX_DATA_SIZE);
+    
+    char* token = strtok(tempCopy, "|");
+    int index = 0;
+
+    while (token != NULL) {
+        if (index == 1) { // 1: AtivoID
+            ativoID = atoi(token); 
+            participanteAtual = ativoID - 1; // Ajuste o índice (0-5) para a seta do display
+        } 
+        else if (index == 2) { // 2: StatusTexto
+            statusDebate = String(token);
+        }
+        else if (token[0] == 'P' && isdigit(token[1])) { // Px: Tempos Individuais (P1:0300)
+            
+            int pID = atoi(&token[1]); 
+            char* tempoStr = strchr(token, ':');
+            
+            if (tempoStr != NULL && pID >= 1 && pID <= NUM_PARTICIPANTES_MAX) {
+                
+                int arrayIndex = pID - 1; 
+                
+                // Converte MMSS para segundos (MM*60 + SS)
+                int min = (tempoStr[1] - '0') * 10 + (tempoStr[2] - '0');
+                int seg = (tempoStr[3] - '0') * 10 + (tempoStr[4] - '0');
+                tempos[arrayIndex] = min * 60 + seg; // Atualiza o array
+            }
+        }
+        else if (strstr(token, "TOTAL:") != NULL) { // TOTAL:MMSS
+            char* totalStr = token + 6; // Pula "TOTAL:"
+            int min = (totalStr[0] - '0') * 10 + (totalStr[1] - '0');
+            int seg = (totalStr[2] - '0') * 10 + (totalStr[3] - '0');
+            tempoTotalGasto = min * 60 + seg; // Armazena em segundos
+        }
+        else if (strstr(token, "LED:") != NULL) { // LED:S
+            tempoRestanteLED = atoi(token + 4); // Armazena em segundos
+        }
+        
+        token = strtok(NULL, "|");
+        index++;
+    }
+    
+    // APÓS RECEBER NOVOS DADOS, ATUALIZA A TELA 
+    atualizaTela(); 
+}
+
+
+// =========================================================================
+// FUNÇÕES DE DESENHO (Integrando com o código do seu colega)
+// =========================================================================
+
+String formatarTempo(int totalSeg) {
+    // ... (Mantida a função de formatação de tempo do seu colega) ...
+    if(totalSeg < 0) totalSeg = 0;
+    int min = totalSeg / 60;
+    int seg = totalSeg % 60;
+
+    String sMin = String(min);
+    String sSeg = String(seg);
+
+    if (seg < 10) {
+        sSeg = "0" + sSeg;
+    }
+    return sMin + ":" + sSeg;
+}
+
+void desenhaTelaInicial() {
+    // ... (Mantida a lógica de desenho do seu colega, adaptada para o STATUS)
+    tela.fillScreen(GxEPD_WHITE);
+    tela.drawRect(0, 105, 400, 300, GxEPD_BLACK);
+    tela.drawLine(200, 105, 200, 300, GxEPD_BLACK);
+
+    fontes.setFont(u8g2_font_ncenB18_tr);
+    fontes.setCursor(0, 32);
+    fontes.print("Bem vindo ao DEBATE");
+
+    fontes.setFont(u8g2_font_ncenR14_tr);
+    fontes.setCursor(50, 60); 
+    fontes.print("STATUS: " + statusDebate); 
+}
+
+void desenhaTelaParticipante() {
+
+    tela.fillScreen(GxEPD_WHITE);
+
+    tela.drawRect(0, 5, 400, 300, GxEPD_BLACK);
+    tela.drawLine(0, 250, 400, 250, GxEPD_BLACK);
+
+    // Itera sobre os participantes (0 a 5)
+    for (int i = 0; i < 6; i++) {
+
+        int x, y;
+        // NOTE: Nomes fixos. Para nomes dinâmicos, Python teria que enviar a lista.
+        String nome = (i <= 2) ? "Fulano " + String(i + 1) : "Ciclano " + String(i - 2); 
+        
+        if (i <= 2) { // Grupo A (Esquerda)
+            x = 20;
+            y = 40 + (i * 80);
+        } else { // Grupo B (Direita)
+            x = 220;
+            y = 40 + ((i - 3) * 80);
+        }
+
+        fontes.setFont(u8g2_font_ncenB18_tr);
+        fontes.setCursor(x, y); 
+        fontes.print(nome); 
+        
+        fontes.setFont(u8g2_font_ncenR14_tr);
+        fontes.setCursor(x, y + 30);
+        // Usa o array de tempos (em segundos) atualizado
+        fontes.print("Tempo: " + formatarTempo(tempos[i]));
+    }
+
+
+    // Tempo total gasto
+    fontes.setFont(u8g2_font_ncenB18_tr);
+    fontes.setCursor(20, 290);  
+    fontes.print("Tempo total: " + formatarTempo(tempoTotalGasto));
+    
+    // Status e Tempo Restante (LED)
+    fontes.setFont(u8g2_font_ncenB18_tr);
+    fontes.setCursor(220, 290);  
+    fontes.print(statusDebate + " (R: " + String(tempoRestanteLED) + "s)");
+
+
+    // Desenho da Seta de Participante Ativo
+    int setaX = 0;
+    int setaY = 0;
+
+    if (participanteAtual >= 0 && participanteAtual <= 2)
+    {
+        setaX = 2;
+        setaY = 40 + (participanteAtual * 80);
+    }
+    else if (participanteAtual >= 3 && participanteAtual <= 5)
+    {
+        setaX = 202;
+        setaY = 40 + ((participanteAtual - 3) * 80);
+    }
+    
+    if (ativoID != 0) {
+        tela.fillTriangle(setaX, setaY-18, setaX, setaY-2, setaX+10, setaY-10, GxEPD_BLACK);
+    }
+}
+
+void desenhaTelaFinal()
+{
+    tela.fillScreen(GxEPD_WHITE);
+    tela.drawRect(0, 5, 400, 300, GxEPD_BLACK);
+    fontes.setFont(u8g2_font_ncenB24_tr);
+    fontes.setCursor(100, 40);  
+    fontes.print("Resultado Final");
+    fontes.setFont(u8g2_font_ncenB18_tr);
+    fontes.setCursor(100, 80);  
+    fontes.print("STATUS: " + statusDebate);
+}
+
+void atualizaTela() {
+    // Decide qual tela desenhar com base no status do Python
+    if (statusDebate == "CONFIGURADO") estadoTela = 0;
+    else if (statusDebate == "ENCERRADO") estadoTela = 2;
+    else estadoTela = 1; // EM_ANDAMENTO ou PAUSADO
+
+    if (estadoTela == 0) desenhaTelaInicial();
+    else if (estadoTela == 1) desenhaTelaParticipante();
+    else if (estadoTela == 2) desenhaTelaFinal();
+
+    // Comando para exibir o buffer na tela E-Paper
+    tela.display(true); 
+}

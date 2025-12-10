@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Configurar Novo Debate - Django</title>
+</head>
+<body>
+    <h1> Configurar Novo Debate</h1>
+    
+    <p><a href="{% url 'historico_debates' %}">Ver Histórico de Debates</a></p>
+
+    <form method="POST">
+        
+        {% csrf_token %} 
+        
+       
+        {{ form.as_p }} 
+
+        <button type="submit">Iniciar Configuração do Debate</button>
+    </form>
+</body>
+</html>

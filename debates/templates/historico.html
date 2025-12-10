@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Histórico de Debates</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .debate-item { 
+            border: 1px solid #ccc; 
+            padding: 15px; 
+            margin-bottom: 15px; 
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .debate-actions a { margin-right: 15px; text-decoration: none; color: #007bff; }
+        .status-badge { font-weight: bold; margin-left: 10px; padding: 2px 8px; border-radius: 3px; font-size: 0.8em; }
+        .status-CONFIGURADO { background-color: #ffc107; color: #333; }
+        .status-EM_ANDAMENTO { background-color: #28a745; color: white; }
+        .status-PAUSADO { background-color: #6c757d; color: white; }
+        .status-ENCERRADO { background-color: #dc3545; color: white; }
+    </style>
+</head>
+<body>
+    <h1> Histórico de Debates Cadastrados</h1>
+
+    <p><a href="{% url 'criar_debate' %}">← Configurar Novo Debate</a></p>
+
+    {% for debate in debates %}
+    <div class="debate-item">
+        <h3>
+            {{ debate.titulo }} (ID: {{ debate.id }})
+            <span class="status-badge status-{{ debate.status }}">{{ debate.status }}</span>
+        </h3>
+        
+        <p><strong>Criado em:</strong> {{ debate.data_criacao }}</p> 
+        <p><strong>Duração Total:</strong> {{ debate.tempo_total_segundos }} segundos</p>
+        
+        <div class="debate-actions" style="margin-top: 10px;">
+            
+            <a href="{% url 'editar_debate' debate_id=debate.id %}"> Gerenciar Participantes</a> 
+            
+            
+            <a href="{% url 'monitorar_debate' debate_id=debate.id %}" style="color: green;"> Iniciar/Monitorar</a>
+            
+            
+            <a href="#" style="color: #6c757d;">📈 Ver Relatório</a>
+        </div>
+    </div>
+    {% empty %}
+        <p>Nenhum debate cadastrado ainda. <a href="{% url 'criar_debate' %}">Crie o primeiro!</a></p>
+    {% endfor %}
+
+</body>
+</html>

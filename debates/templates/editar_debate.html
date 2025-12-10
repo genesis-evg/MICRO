@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Gerenciar Participantes - {{ debate.titulo }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        h1 { border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+        .participante-list { list-style: none; padding: 0; }
+        .participante-item { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            padding: 10px; 
+            margin-bottom: 5px;
+            border: 1px solid #eee;
+            border-radius: 4px;
+        }
+        .remover-btn { 
+            color: white; 
+            background-color: #dc3545; 
+            border: none; 
+            padding: 5px 10px; 
+            border-radius: 3px; 
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .add-form { margin-top: 30px; padding: 15px; border: 1px dashed #ccc; }
+    </style>
+</head>
+<body>
+    <h1> Gerenciar Participantes</h1>
+    <h2>Debate: {{ debate.titulo }} (ID: {{ debate.id }})</h2>
+
+    <h3>Lista Atual de Participantes</h3>
+    
+    <ul class="participante-list">
+        {% for p in participantes %}
+        <li class="participante-item">
+            <span>
+                <strong>{{ p.participante_nome }}</strong> (Grupo: {{ p.grupo_nome }})
+            </span>
+          
+            <a href="{% url 'remover_participante' participante_id=p.id %}" class="remover-btn">
+                [X Remover]
+            </a>
+        </li>
+        {% empty %}
+            <li>Nenhum participante cadastrado.</li>
+        {% endfor %}
+    </ul>
+
+    <div class="add-form">
+        <h3>Adicionar Novo Participante</h3>
+        <form method="POST">
+            {% csrf_token %} 
+            
+            {{ form_adicionar.as_p }} 
+
+            <button type="submit">Adicionar Participante</button>
+        </form>
+    </div>
+    
+    <hr>
+    <p>
+        <a href="{% url 'historico_debates' %}">← Voltar para o Histórico</a>
+        | 
+        
+        <a href="{% url 'monitorar_debate' debate_id=debate.id %}"> Iniciar Monitoramento</a>
+    </p>
+</body>
+</html>
