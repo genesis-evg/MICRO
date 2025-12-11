@@ -55,3 +55,5 @@ Conceito: Interface de Hardware e I/O. Recebe a string STATUS|..., atualiza a te
 Funções de Display: desenhaTelaInicial(), desenhaTelaParticipante(), etc.
 
 Conceito: Feedback em Tempo Real. Exibe os dados dinâmicos (nomes, grupos, tempos) lidos do Django, garantindo que o hardware reflita o estado central.
+
+<img width="1285" height="777" alt="Image" src="https://github.com/user-attachments/assets/e88fc130-db74-4c56-8d53-3b7af7fd05ec" />
