@@ -56,4 +56,8 @@ Funções de Display: desenhaTelaInicial(), desenhaTelaParticipante(), etc.
 
 Conceito: Feedback em Tempo Real. Exibe os dados dinâmicos (nomes, grupos, tempos) lidos do Django, garantindo que o hardware reflita o estado central.
 
+
+FRITZING
 <img width="1285" height="777" alt="Image" src="https://github.com/user-attachments/assets/e88fc130-db74-4c56-8d53-3b7af7fd05ec" />
+
+[![Assistir ao vídeo](https://img.youtube.com/vi/IyQjLYK6kTY/hqdefault.jpg)](https://www.youtube.com/watch?v=IyQjLYK6kTY)
